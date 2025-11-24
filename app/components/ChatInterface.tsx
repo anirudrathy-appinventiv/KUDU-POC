@@ -76,7 +76,7 @@ export default function ChatInterface({
       <div 
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 space-y-4 overflow-y-auto rounded-2xl bg-white/70 p-5 shadow-inner shadow-[#98b1d324] no-scrollbar"
+        className="flex-1 space-y-4 overflow-y-auto rounded-2xl bg-white/70 p-4 shadow-inner shadow-[#98b1d324] no-scrollbar"
       >
         {messages.length === 0 && (
           <div className="mt-8 text-center text-[#87776B]">
@@ -97,8 +97,8 @@ export default function ChatInterface({
               <div
                 className={`max-w-[80%] rounded-2xl border px-4 py-3 text-sm leading-relaxed shadow relative ${
                   message.role === 'user'
-                    ? 'border-[#98B1D3]/60 bg-[#98B1D3] text-[#393A46] shadow-[#98B1D380]'
-                    : 'border-[#87776B]/30 bg-[#F2F1F0] text-[#393A46] shadow-[#c6a17e33]'
+                    ? 'border-[#98B1D3] bg-[#98B1D3] text-[#433E3E] shadow-[#98B1D3]/50'
+                    : 'border-[#87776B]/30 bg-[#F2F1F0] text-[#393A46] shadow-[#c6a17e33]/50'
                 } ${isClickable ? 'cursor-pointer hover:ring-2 hover:ring-[#F3C32B]/50 transition-shadow' : ''}`}
                 onClick={() => isClickable && onJumpToCheckpoint(message.id)}
                 title={isCheckpoint ? 'Click to view this analysis' : undefined}

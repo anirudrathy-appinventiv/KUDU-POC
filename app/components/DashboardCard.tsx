@@ -92,7 +92,7 @@ export default function DashboardCard({ item, onRemove, onRefresh, onTitleEdit }
   };
 
   return (
-    <div className="rounded-2xl border border-[#87776B]/20 bg-white shadow-lg p-5 flex flex-col">
+    <div className="rounded-2xl border border-[#87776B]/20 shadow-lg p-5 flex flex-col bg-[#393A46]">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1 min-w-0">
@@ -106,12 +106,12 @@ export default function DashboardCard({ item, onRemove, onRefresh, onTitleEdit }
                   if (e.key === 'Enter') handleTitleSave();
                   if (e.key === 'Escape') handleTitleCancel();
                 }}
-                className="flex-1 px-2 py-1 text-sm font-semibold text-[#393A46] border border-[#98B1D3] rounded focus:outline-none focus:ring-2 focus:ring-[#98B1D3]"
+                className="flex-1 px-2 py-1 text-sm font-semibold text-[#ffffff] border border-[#98B1D3] rounded focus:outline-none focus:ring-2 focus:ring-[#98B1D3]"
                 autoFocus
               />
               <button
                 onClick={handleTitleSave}
-                className="p-1 text-[#4CB49C] hover:bg-[#4CB49C]/10 rounded transition"
+                className="p-1 text-white hover:bg-[#4CB49C]/10 rounded transition"
                 title="Save"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -120,7 +120,7 @@ export default function DashboardCard({ item, onRemove, onRefresh, onTitleEdit }
               </button>
               <button
                 onClick={handleTitleCancel}
-                className="p-1 text-[#87776B] hover:bg-[#87776B]/10 rounded transition"
+                className="p-1 text-white hover:bg-[#87776B]/10 rounded transition"
                 title="Cancel"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -130,14 +130,14 @@ export default function DashboardCard({ item, onRemove, onRefresh, onTitleEdit }
             </div>
           ) : (
             <h3
-              className="text-base font-semibold text-[#393A46] truncate cursor-pointer hover:text-[#98B1D3] transition"
+              className="text-base font-semibold text-white truncate cursor-pointer hover:text-[#98B1D3] transition"
               onClick={() => setIsEditingTitle(true)}
               title="Click to edit title"
             >
               {item.title}
             </h3>
           )}
-          <p className="text-xs text-[#87776B] mt-1 truncate" title={item.userQuery}>
+          <p className="text-xs text-white mt-1 truncate" title={item.userQuery}>
             {item.userQuery}
           </p>
         </div>
@@ -196,7 +196,7 @@ export default function DashboardCard({ item, onRemove, onRefresh, onTitleEdit }
                   style={{ animationDelay: '0.4s' }}
                 ></div>
               </div>
-              <p className="text-sm text-[#87776B]">Loading data...</p>
+              <p className="text-sm text-white">Loading data...</p>
             </div>
           </div>
         ) : error ? (
@@ -221,7 +221,7 @@ export default function DashboardCard({ item, onRemove, onRefresh, onTitleEdit }
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between text-xs text-[#87776B] pt-3 border-t border-[#87776B]/10">
+      <div className="flex items-center justify-between text-xs text-white pt-3 border-t border-[#87776B]/10">
         <span>
           Last refreshed: {getTimeSince(item.lastRefreshed || item.createdAt)}
         </span>
@@ -234,4 +234,5 @@ export default function DashboardCard({ item, onRemove, onRefresh, onTitleEdit }
     </div>
   );
 }
+
 

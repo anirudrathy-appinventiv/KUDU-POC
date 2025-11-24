@@ -13,8 +13,8 @@ function getPool(): Pool {
       password: process.env.REDSHIFT_PASSWORD,
       ssl: process.env.REDSHIFT_SSL === 'true' ? { rejectUnauthorized: false } : false,
       max: 5, // Maximum number of clients in the pool
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 300000,
+      connectionTimeoutMillis: 100000,
     });
 
     pool.on('error', (err) => {
@@ -25,7 +25,7 @@ function getPool(): Pool {
   return pool;
 }
 
-export async function executeQuery(sql: string, timeoutMs: number = 30000): Promise<QueryResult> {
+export async function executeQuery(sql: string, timeoutMs: number = 60000): Promise<QueryResult> {
   // FINAL SAFETY CHECK: Never execute non-SELECT queries
   // This is the last line of defense before database execution
   const upperSql = sql.trim().toUpperCase();

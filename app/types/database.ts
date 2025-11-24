@@ -21,16 +21,95 @@ export interface VisualizationPlan {
     column: string;
     label: string;
     type: 'category' | 'time' | 'numeric';
+    format?: {
+      type: 'currency' | 'number' | 'percentage' | 'date' | 'count' | 'auto';
+      currency?: string; // 'USD', 'EUR', etc.
+      decimals?: number;
+      dateFormat?: string; // 'YYYY-MM-DD', 'MM/DD/YYYY', etc.
+      scale?: 'linear' | 'log' | 'sqrt';
+    };
+    visual?: {
+      angle?: number; // -45, 0, 45, 90
+      tickInterval?: number;
+      maxLength?: number; // truncate labels
+    };
   };
   yAxis?: {
     columns: string[];
     label: string;
     aggregation?: 'sum' | 'avg' | 'count' | 'none';
+    format?: {
+      type: 'currency' | 'number' | 'percentage' | 'date' | 'count' | 'auto';
+      currency?: string;
+      decimals?: number;
+      scale?: 'linear' | 'log' | 'sqrt';
+      min?: number;
+      max?: number;
+    };
+    secondaryAxis?: {
+      columns: string[];
+      label: string;
+      position?: 'left' | 'right';
+      format?: {
+        type: 'currency' | 'number' | 'percentage' | 'date' | 'count' | 'auto';
+        currency?: string;
+        decimals?: number;
+        scale?: 'linear' | 'log' | 'sqrt';
+        min?: number;
+        max?: number;
+      };
+    };
   };
   groupBy?: string;
   title?: string;
   reasoning: string;
   shouldVisualize: boolean;
+  styling?: {
+    colors?: string[]; // Custom color palette
+    theme?: 'light' | 'dark' | 'auto';
+    gridLines?: boolean;
+    legend?: {
+      show: boolean;
+      position?: 'top' | 'bottom' | 'left' | 'right';
+    };
+    tooltip?: {
+      format?: 'full' | 'abbreviated' | 'custom';
+      showPercentages?: boolean; // For pie charts
+    };
+  };
+  dataTransform?: {
+    sort?: {
+      column: string;
+      direction: 'asc' | 'desc';
+    };
+    filter?: {
+      column: string;
+      operator: 'gt' | 'lt' | 'eq' | 'gte' | 'lte';
+      value: any;
+    };
+    limit?: number; // Max rows to display
+    aggregate?: boolean;
+  };
+  insights?: {
+    keyFindings?: string[]; // AI-generated insights
+    annotations?: Array<{
+      type: 'highlight' | 'note' | 'trend';
+      value: any;
+      label: string;
+    }>;
+    recommendations?: string[];
+  };
+  validation?: {
+    requiredColumns: string[];
+    minRows?: number;
+    maxRows?: number;
+    allowedTypes?: string[];
+    warnings?: string[]; // AI-generated warnings
+  };
+  fallback?: {
+    chartType: string;
+    reasoning: string;
+  };
 }
 
 export interface ChatMessage {

@@ -358,9 +358,13 @@ export default function Home() {
               </svg>
             </button>
 
-            <div>
-              <h1 className="text-2xl font-semibold text-[#393A46]">KUDU Data Analysis Assistant</h1>
-              <p className="text-sm text-[#87776B] mt-1">Your intelligent business insights platform</p>
+            <div className="flex flex-col gap-2">
+              <img 
+                src="/kudu-m-logo.png" 
+                alt="KUDU Logo" 
+                className="h-14 w-auto"
+              />
+              <p className="text-sm text-[#232221]">Your intelligent business insights platform</p>
             </div>
           </div>
           
@@ -419,8 +423,8 @@ export default function Home() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="surface lg:col-span-1">
             <div className="flex h-[min(72vh,720px)] flex-col overflow-hidden">
-              <div className="px-6 py-6">
-                <div className="mb-4">
+              <div className="px-6 py-4">
+                <div className="mb-2">
                   <h3 className="text-lg font-semibold text-[#393A46]">Chat</h3>
                 </div>
               </div>

@@ -20,7 +20,8 @@ import {
   TooltipProps,
 } from 'recharts';
 import { 
-  formatAxisLabel, 
+  formatAxisLabel,
+  formatAxisLabelWithPlan,
   formatTooltipValue, 
   isDateValue,
   isCurrencyColumn,
@@ -43,19 +44,38 @@ const tooltipStyle = {
 const legendStyle = { color: '#F2F1F0' };
 
 // Custom tooltip component with formatted values
-const CustomTooltip = ({ active, payload, label, columnNames }: any) => {
+const CustomTooltip = ({ active, payload, label, columnNames, formatConfigs, primaryColumns, secondaryColumns }: any) => {
   if (!active || !payload || !payload.length) return null;
+
+  const formatValue = (value: any, columnName?: string) => {
+    // Determine which axis this column belongs to
+    const isPrimaryColumn = primaryColumns?.includes(columnName);
+    const isSecondaryColumn = secondaryColumns?.includes(columnName);
+    
+    // Use appropriate format config
+    if (formatConfigs?.primary && isPrimaryColumn) {
+      return formatAxisLabelWithPlan(value, formatConfigs.primary, columnName);
+    } else if (formatConfigs?.secondary && isSecondaryColumn) {
+      return formatAxisLabelWithPlan(value, formatConfigs.secondary, columnName);
+    } else if (formatConfigs?.primary) {
+      // Default to primary format if no specific axis is determined
+      return formatAxisLabelWithPlan(value, formatConfigs.primary, columnName);
+    }
+    
+    // Fallback to standard tooltip formatting
+    return formatTooltipValue(value, columnName);
+  };
 
   return (
     <div style={tooltipStyle} className="p-3">
       <p className="mb-2 font-semibold">
         {payload[0]?.payload?.rawName 
-          ? formatTooltipValue(payload[0].payload.rawName, columnNames?.[0])
+          ? formatValue(payload[0].payload.rawName, columnNames?.[0])
           : label}
       </p>
       {payload.map((entry: any, index: number) => (
         <p key={index} style={{ color: entry.color }}>
-          {entry.name}: {formatTooltipValue(entry.value, entry.name)}
+          {entry.name}: {formatValue(entry.value, entry.name)}
         </p>
       ))}
     </div>
@@ -166,9 +186,47 @@ function prepareChartDataWithPlan(data: QueryResult, plan: VisualizationPlan) {
   const xAxisColumn = plan.xAxis?.column || data.columns[0];
   const yAxisColumns = plan.yAxis?.columns || [data.columns[1]];
   
+  // Start with all rows
+  let processedRows = [...data.rows];
+  
+  // Apply filtering if specified in plan
+  if (plan.dataTransform?.filter) {
+    // Note: Complex filtering would need more implementation
+    // For now, we pass through all data
+  }
+  
+  // Apply sorting if specified in plan
+  if (plan.dataTransform?.sort) {
+    const sortColumn = plan.dataTransform.sort.column;
+    const sortDirection = plan.dataTransform.sort.direction || 'asc';
+    
+    processedRows = processedRows.sort((a, b) => {
+      const aVal = a[sortColumn];
+      const bVal = b[sortColumn];
+      
+      if (aVal === null || aVal === undefined) return 1;
+      if (bVal === null || bVal === undefined) return -1;
+      
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+      
+      const aStr = String(aVal);
+      const bStr = String(bVal);
+      return sortDirection === 'asc' 
+        ? aStr.localeCompare(bStr)
+        : bStr.localeCompare(aStr);
+    });
+  }
+  
+  // Apply limit if specified in plan
+  if (plan.dataTransform?.limit) {
+    processedRows = processedRows.slice(0, plan.dataTransform.limit);
+  }
+  
   // For pie charts, use simple name/value structure
   if (plan.chartType === 'pie') {
-    return data.rows.map(row => {
+    return processedRows.map(row => {
       const rawName = row[xAxisColumn];
       return {
         name: formatAxisLabel(rawName, xAxisColumn),
@@ -179,10 +237,20 @@ function prepareChartDataWithPlan(data: QueryResult, plan: VisualizationPlan) {
   }
   
   // For other charts, map data according to plan
-  return data.rows.map(row => {
+  return processedRows.map(row => {
     const rawName = row[xAxisColumn];
+    
+    // Special handling for day_of_month: keep as simple number, don't format as date
+    let displayName: string;
+    if (xAxisColumn.toLowerCase().includes('day_of_month') || xAxisColumn.toLowerCase() === 'day') {
+      // For day_of_month, just show the number (1, 2, 3...)
+      displayName = String(rawName);
+    } else {
+      displayName = formatAxisLabel(rawName, xAxisColumn);
+    }
+    
     const obj: Record<string, any> = {
-      name: formatAxisLabel(rawName, xAxisColumn),
+      name: displayName,
       rawName, // Store raw value for tooltips
     };
     yAxisColumns.forEach(col => {
@@ -219,13 +287,65 @@ export default function ChartRenderer({ data, plan }: ChartRendererProps) {
     ? prepareChartDataWithPlan(data, plan)
     : prepareChartData(data, chartType);
   
-  // Limit data for performance
-  const displayData = chartData.slice(0, 50);
+  // Use plan's limit if available, otherwise default to 50 for performance
+  const dataLimit = plan?.dataTransform?.limit || 50;
+  const displayData = chartData.slice(0, dataLimit);
+  
   const xAxisKey = plan?.xAxis?.column || data.columns[0];
   const numericColumns = plan?.yAxis?.columns || data.columns.slice(1).filter(col => {
     const sample = data.rows[0]?.[col];
     return typeof sample === 'number';
   });
+
+  // Extract format configs from plan
+  const yAxisFormat = plan?.yAxis?.format;
+  const secondaryAxisFormat = plan?.yAxis?.secondaryAxis?.format;
+  const yAxisColumn = numericColumns[0];
+  
+  // Create formatter functions that use plan format when available
+  const formatYAxisValue = (value: any) => {
+    if (yAxisFormat) {
+      return formatAxisLabelWithPlan(value, yAxisFormat, yAxisColumn);
+    }
+    return formatAxisLabel(value, yAxisColumn);
+  };
+  
+  const formatSecondaryYAxisValue = (value: any) => {
+    if (secondaryAxisFormat) {
+      const secondaryColumn = plan?.yAxis?.secondaryAxis?.columns?.[0];
+      return formatAxisLabelWithPlan(value, secondaryAxisFormat, secondaryColumn);
+    }
+    return formatAxisLabel(value, numericColumns[1]);
+  };
+
+  // Determine if we have a secondary axis
+  const hasSecondaryAxis = !!plan?.yAxis?.secondaryAxis;
+  const primaryColumns = hasSecondaryAxis 
+    ? numericColumns.filter(col => !plan?.yAxis?.secondaryAxis?.columns?.includes(col))
+    : numericColumns;
+  const secondaryColumns = hasSecondaryAxis 
+    ? (plan?.yAxis?.secondaryAxis?.columns || [])
+    : [];
+
+  // Use custom colors from plan if available, otherwise use defaults
+  const chartColors = plan?.styling?.colors || COLORS;
+  
+  // Use grid lines setting from plan if available, otherwise default to true
+  const showGridLines = plan?.styling?.gridLines !== false;
+  
+  // Use legend settings from plan if available
+  const showLegend = plan?.styling?.legend?.show !== false;
+  const legendPosition = plan?.styling?.legend?.position || 'top';
+  const legendWrapperStyle = {
+    ...legendStyle,
+    ...(legendPosition === 'bottom' && { paddingTop: '20px' }),
+    ...(legendPosition === 'top' && { paddingBottom: '10px' }),
+  };
+
+  // Check if this is a day-of-month comparison (special handling)
+  const isDayOfMonthComparison = xAxisKey.toLowerCase().includes('day_of_month') || 
+                                  xAxisKey.toLowerCase() === 'day' ||
+                                  (plan?.xAxis?.type === 'category' && plan?.xAxis?.label?.toLowerCase().includes('day of month'));
 
   // Log reasoning if available
   if (plan?.reasoning) {
@@ -252,54 +372,71 @@ export default function ChartRenderer({ data, plan }: ChartRendererProps) {
             dataKey="value"
           >
             {displayData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
             ))}
           </Pie>
-          <Tooltip content={<CustomTooltip columnNames={data.columns} />} />
+          <Tooltip content={<CustomTooltip columnNames={data.columns} formatConfigs={{ primary: yAxisFormat }} primaryColumns={primaryColumns} secondaryColumns={secondaryColumns} />} />
+          {showLegend && <Legend wrapperStyle={legendWrapperStyle} />}
         </PieChart>
       </ResponsiveContainer>
     );
   }
 
   if (chartType === 'line') {
-    // Determine if Y-axis should be formatted as currency
-    const yAxisIsCurrency = numericColumns.length > 0 
-      ? isCurrencyColumn(numericColumns[0]) 
-      : false;
-    
     return (
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={displayData}>
-          <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" />
+          {showGridLines && <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" />}
           <XAxis 
             dataKey="name" 
-            angle={-45}
-            textAnchor="end"
-            height={80}
+            angle={isDayOfMonthComparison ? 0 : (plan?.xAxis?.visual?.angle ?? -45)}
+            textAnchor={isDayOfMonthComparison ? "middle" : "end"}
+            height={isDayOfMonthComparison ? 40 : 80}
             tick={{ fontSize: 12, fill: TICK_COLOR }}
           />
           <YAxis 
+            yAxisId="left"
+            orientation="left"
             tick={{ fill: TICK_COLOR }}
-            tickFormatter={(value) => formatAxisLabel(value, numericColumns[0])}
+            tickFormatter={formatYAxisValue}
           />
-          <Tooltip content={<CustomTooltip columnNames={data.columns} />} />
-          <Legend wrapperStyle={legendStyle} />
-          {numericColumns.length > 0 ? (
-            numericColumns.map((col, idx) => (
-              <Line
-                key={col}
-                type="monotone"
-                dataKey={col}
-                stroke={COLORS[idx % COLORS.length]}
-                strokeWidth={2}
-              />
-            ))
-          ) : (
+          {hasSecondaryAxis && (
+            <YAxis 
+              yAxisId="right"
+              orientation="right"
+              tick={{ fill: TICK_COLOR }}
+              tickFormatter={formatSecondaryYAxisValue}
+            />
+          )}
+          <Tooltip content={<CustomTooltip columnNames={data.columns} formatConfigs={{ primary: yAxisFormat, secondary: secondaryAxisFormat }} primaryColumns={primaryColumns} secondaryColumns={secondaryColumns} />} />
+          {showLegend && <Legend wrapperStyle={legendWrapperStyle} />}
+          {primaryColumns.length > 0 && primaryColumns.map((col, idx) => (
+            <Line
+              key={col}
+              type="monotone"
+              dataKey={col}
+              stroke={chartColors[idx % chartColors.length]}
+              strokeWidth={2}
+              yAxisId="left"
+            />
+          ))}
+          {secondaryColumns.length > 0 && secondaryColumns.map((col, idx) => (
+            <Line
+              key={col}
+              type="monotone"
+              dataKey={col}
+              stroke={chartColors[(idx + primaryColumns.length) % chartColors.length]}
+              strokeWidth={2}
+              yAxisId="right"
+            />
+          ))}
+          {numericColumns.length === 0 && (
             <Line
               type="monotone"
               dataKey="value"
-              stroke={COLORS[0]}
+              stroke={chartColors[0]}
               strokeWidth={2}
+              yAxisId="left"
             />
           )}
         </LineChart>
@@ -311,38 +448,60 @@ export default function ChartRenderer({ data, plan }: ChartRendererProps) {
     return (
       <ResponsiveContainer width="100%" height={300}>
         <AreaChart data={displayData}>
-          <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" />
+          {showGridLines && <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" />}
           <XAxis 
             dataKey="name" 
-            angle={-45}
-            textAnchor="end"
-            height={80}
+            angle={isDayOfMonthComparison ? 0 : (plan?.xAxis?.visual?.angle ?? -45)}
+            textAnchor={isDayOfMonthComparison ? "middle" : "end"}
+            height={isDayOfMonthComparison ? 40 : 80}
             tick={{ fontSize: 12, fill: TICK_COLOR }}
           />
           <YAxis 
+            yAxisId="left"
+            orientation="left"
             tick={{ fill: TICK_COLOR }}
-            tickFormatter={(value) => formatAxisLabel(value, numericColumns[0])}
+            tickFormatter={formatYAxisValue}
           />
-          <Tooltip content={<CustomTooltip columnNames={data.columns} />} />
-          <Legend wrapperStyle={legendStyle} />
-          {numericColumns.length > 0 ? (
-            numericColumns.map((col, idx) => (
-              <Area
-                key={col}
-                type="monotone"
-                dataKey={col}
-                stroke={COLORS[idx % COLORS.length]}
-                fill={COLORS[idx % COLORS.length]}
-                fillOpacity={0.6}
-              />
-            ))
-          ) : (
+          {hasSecondaryAxis && (
+            <YAxis 
+              yAxisId="right"
+              orientation="right"
+              tick={{ fill: TICK_COLOR }}
+              tickFormatter={formatSecondaryYAxisValue}
+            />
+          )}
+          <Tooltip content={<CustomTooltip columnNames={data.columns} formatConfigs={{ primary: yAxisFormat, secondary: secondaryAxisFormat }} primaryColumns={primaryColumns} secondaryColumns={secondaryColumns} />} />
+          {showLegend && <Legend wrapperStyle={legendWrapperStyle} />}
+          {primaryColumns.length > 0 && primaryColumns.map((col, idx) => (
+            <Area
+              key={col}
+              type="monotone"
+              dataKey={col}
+              stroke={chartColors[idx % chartColors.length]}
+              fill={chartColors[idx % chartColors.length]}
+              fillOpacity={0.6}
+              yAxisId="left"
+            />
+          ))}
+          {secondaryColumns.length > 0 && secondaryColumns.map((col, idx) => (
+            <Area
+              key={col}
+              type="monotone"
+              dataKey={col}
+              stroke={chartColors[(idx + primaryColumns.length) % chartColors.length]}
+              fill={chartColors[(idx + primaryColumns.length) % chartColors.length]}
+              fillOpacity={0.6}
+              yAxisId="right"
+            />
+          ))}
+          {numericColumns.length === 0 && (
             <Area
               type="monotone"
               dataKey="value"
-              stroke={COLORS[0]}
-              fill={COLORS[0]}
+              stroke={chartColors[0]}
+              fill={chartColors[0]}
               fillOpacity={0.6}
+              yAxisId="left"
             />
           )}
         </AreaChart>
@@ -354,30 +513,48 @@ export default function ChartRenderer({ data, plan }: ChartRendererProps) {
   return (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={displayData}>
-        <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" />
+        {showGridLines && <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" />}
         <XAxis 
           dataKey="name" 
-          angle={-45}
-          textAnchor="end"
-          height={80}
+          angle={isDayOfMonthComparison ? 0 : (plan?.xAxis?.visual?.angle ?? -45)}
+          textAnchor={isDayOfMonthComparison ? "middle" : "end"}
+          height={isDayOfMonthComparison ? 40 : 80}
           tick={{ fontSize: 12, fill: TICK_COLOR }}
         />
         <YAxis 
+          yAxisId="left"
+          orientation="left"
           tick={{ fill: TICK_COLOR }}
-          tickFormatter={(value) => formatAxisLabel(value, numericColumns[0])}
+          tickFormatter={formatYAxisValue}
         />
-        <Tooltip content={<CustomTooltip columnNames={data.columns} />} />
-        <Legend wrapperStyle={legendStyle} />
-        {numericColumns.length > 0 ? (
-          numericColumns.map((col, idx) => (
-            <Bar
-              key={col}
-              dataKey={col}
-              fill={COLORS[idx % COLORS.length]}
-            />
-          ))
-        ) : (
-          <Bar dataKey="value" fill={COLORS[0]} />
+        {hasSecondaryAxis && (
+          <YAxis 
+            yAxisId="right"
+            orientation="right"
+            tick={{ fill: TICK_COLOR }}
+            tickFormatter={formatSecondaryYAxisValue}
+          />
+        )}
+        <Tooltip content={<CustomTooltip columnNames={data.columns} formatConfigs={{ primary: yAxisFormat, secondary: secondaryAxisFormat }} primaryColumns={primaryColumns} secondaryColumns={secondaryColumns} />} />
+        {showLegend && <Legend wrapperStyle={legendWrapperStyle} />}
+        {primaryColumns.length > 0 && primaryColumns.map((col, idx) => (
+          <Bar
+            key={col}
+            dataKey={col}
+            fill={chartColors[idx % chartColors.length]}
+            yAxisId="left"
+          />
+        ))}
+        {secondaryColumns.length > 0 && secondaryColumns.map((col, idx) => (
+          <Bar
+            key={col}
+            dataKey={col}
+            fill={chartColors[(idx + primaryColumns.length) % chartColors.length]}
+            yAxisId="right"
+          />
+        ))}
+        {numericColumns.length === 0 && (
+          <Bar dataKey="value" fill={chartColors[0]} yAxisId="left" />
         )}
       </BarChart>
     </ResponsiveContainer>

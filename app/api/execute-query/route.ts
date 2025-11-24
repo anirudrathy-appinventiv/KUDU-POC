@@ -13,10 +13,10 @@ export async function POST(request: NextRequest) {
     const { sqlQuery } = requestSchema.parse(body);
 
     // Validate SQL for security
-    const validation = validateSQL(sqlQuery);
-    if (!validation.isValid) {
+    const isValid = validateSQL(sqlQuery);
+    if (!isValid) {
       return NextResponse.json(
-        { error: validation.error || 'Invalid SQL query' },
+        { error: 'Invalid SQL query' },
         { status: 400 }
       );
     }

@@ -475,4 +475,3 @@ function extractTableNames(sql: string): string[] {
 
   return Array.from(tableNames);
 }
-
